@@ -50,7 +50,7 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 	raise ArgumentError, 'container name cannot be empty' if !container_name or container_name.empty?
 	raise ArgumentError, 'blob name cannot be empty' if !blob_name or blob_name.empty?
 
-	blob, content = ablob_service.get_blob(container_name, blob_name)
+	blob, content = @azure_blob_service.get_blob(container_name, blob_name)
 	if content
 	    @logger.debug("Azure succeed read blob, container_name: #{container_name}, blob: #{blob_name}.")
 	    content
@@ -93,7 +93,7 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
   def process_msg(queue, msg)
     message_data = JSON.parse(msg.message_text)
     eventType = message_data["eventType"]
-    @logger.debug("Azure event queue message recevied: id: #{msg.id}, text: #{json}.")
+    @logger.debug("Azure event queue message recevied: id: #{msg.id}, text: #{message_data}.")
 
     if eventType == "Microsoft.Storage.BlobCreated"
 	subject = message_data["subject"]
@@ -103,7 +103,7 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 	if subject.include?(subject_prefix)
 	    subjects = subject.split("/")
 	    container_name = subjects[4]
-	    subject_prefix = subject_prefix + container_name + '/'
+	    subject_prefix = subject_prefix + container_name + '/blobs/'
 	    blob_name = subject[subject_prefix.length..subject.length]
 
 	    data = read_storage_object(container_name, blob_name)
@@ -119,6 +119,7 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
     end #eventType
   end #process_msg
 
+  public
   def run(queue)
     while !stop?
 	messages = @azure_queue_service.list_messages(
