@@ -40,8 +40,9 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 						:storage_access_key => @storage_access_key
 						)
     else
+        #in case we support get the storage account and access key from env setting
         @azure_queue_service = Azure::Storage::Queue::QueueService.create_from_env()
-	@azure_blob_service = Azure::Storage::Blob::BlobService.create_from_env()
+        @azure_blob_service = Azure::Storage::Blob::BlobService.create_from_env()
     end	
   end # def register
 
@@ -52,18 +53,18 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 
 	blob, content = @azure_blob_service.get_blob(container_name, blob_name)
 	if content
-	    @logger.debug("Azure succeed read blob, container_name: #{container_name}, blob: #{blob_name}.")
-	    content
+	    @logger.debug("Azure reads blob succeed, container_name: #{container_name}, blob: #{blob_name}.")
+	    return content
 	else
-	    @logger.error("Azure read blob fail, container_name: #{container_name}, blob: #{blob_name}.")
+	    @logger.error("Azure reads blob fail, container_name: #{container_name}, blob: #{blob_name}!!!")
 	end #content
   end # def read_storage_object
 
   private
   def emit(queue, line)
     @codec.decode(line) do |event|
-      decorate(event)
-      queue << event
+        decorate(event)
+        queue << event
     end
   end
 
@@ -93,29 +94,29 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
   def process_msg(queue, msg)
     message_data = JSON.parse(msg.message_text)
     eventType = message_data["eventType"]
-    @logger.debug("Azure event queue message recevied: id: #{msg.id}, text: #{message_data}.")
+    @logger.debug("Azure blob event queue message recevied: id: #{msg.id}, text: #{message_data}.")
 
     if eventType == "Microsoft.Storage.BlobCreated"
 	subject = message_data["subject"]
+
 	# get the container name and blob name from the subject
 	subject_prefix = "/blobServices/default/containers/"
-
 	if subject.include?(subject_prefix)
 	    subjects = subject.split("/")
+
 	    container_name = subjects[4]
 	    subject_prefix = subject_prefix + container_name + '/blobs/'
 	    blob_name = subject[subject_prefix.length..subject.length]
 
 	    data = read_storage_object(container_name, blob_name)
 	    return nil unless data
-
 	    #process the blob file's content
 	    data.each_line { |line| emit(queue, line) }
 	else
-	    @logger.error("Azure evnet is invalid, subject: #{subject}!!!")
+	    @logger.error("Azure blob event is invalid, subject: #{subject}!!!")
 	end #subject.include
     else
-	@logger.debug("Azure event queue message is not blob create event: id: #{msg.id}.")
+	@logger.debug("Azure blob event queue message is not created event: id: #{msg.id}.")
     end #eventType
   end #process_msg
 
@@ -137,7 +138,7 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 					msg.id,
 					msg.pop_receipt
 					)
-	   end # messages each
+	   end # messages.each
 	end
     end # loop
   end # def run
