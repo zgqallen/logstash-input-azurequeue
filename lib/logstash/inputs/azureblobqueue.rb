@@ -122,7 +122,8 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 
   public
   def run(queue)
-    while !stop?
+    @current_thread = Thread.current
+    Stud.interval(@interval) do
 	messages = @azure_queue_service.list_messages(
 					@blob_event_queue, 
 					@visibility_timeout, 
@@ -140,14 +141,14 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 					)
 	   end # messages.each
 	end
-    end # loop
+    end # Stud
   end # def run
 
+  public
   def stop
-    # nothing to do in this case so it is not necessary to define stop
-    # examples of common "stop" tasks:
-    #  * close sockets (unblocking blocking reads/accepts)
-    #  * cleanup temporary files
-    #  * terminate spawned threads
+    # @current_thread is initialized in the `#run` method,
+    # this variable is needed because the `#stop` is a called in another thread
+    # than the `#run` method and requiring us to call stop! with a explicit thread.
+    Stud.stop!(@current_thread
   end # def stop
 end # class LogStash::Inputs::Azureblobqueue
