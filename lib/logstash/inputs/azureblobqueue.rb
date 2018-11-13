@@ -29,21 +29,18 @@ class LogStash::Inputs::Azureblobqueue < LogStash::Inputs::Base
 
   public
   def register
-    @logger.info("Registering azureblobqueue input", :accountname => @storage_account_name, :blob_event_queue => @blob_event_queue)
-    if storage_access_key
-	@azure_queue_service = Azure::Storage::Queue::QueueService.create(
-						:storage_account_name => @storage_account_name, 
-						:storage_access_key => @storage_access_key
-						)
-	@azure_blob_service = Azure::Storage::Blob::BlobService.create(
+      @logger.info("Registering azureblobqueue input", :accountname => @storage_account_name, :blob_event_queue => @blob_event_queue)
+      if storage_access_key
+	  common_client = Azure::Storage::Common::Client.create(
 						:storage_account_name => @storage_account_name,
 						:storage_access_key => @storage_access_key
 						)
-    else
-        #in case we support get the storage account and access key from env setting
-        @azure_queue_service = Azure::Storage::Queue::QueueService.create_from_env()
-        @azure_blob_service = Azure::Storage::Blob::BlobService.create_from_env()
-    end	
+      else
+	  #in case we support get the storage account and access key from env setting
+	  common_client = Azure::Storage::Common::Client.create_from_env()
+      end
+      @azure_queue_service = Azure::Storage::Queue::QueueService.new(client: common_client)
+      @azure_blob_service = Azure::Storage::Blob::BlobService.new(client: common_client)
   end # def register
 
   private
